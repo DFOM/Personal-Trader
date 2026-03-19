@@ -87,6 +87,8 @@ Personal Trader/
 └── PROJECT_STATE.md
 ```
 
+### Release: Alpha 1.2
+
 ## Completed Tasks
 
 - [2026-03-19] Initialized `PROJECT_STATE.md` as persistent memory for architecture, stack, structure, and progress logs.
@@ -96,14 +98,19 @@ Personal Trader/
 - [2026-03-19] Integrated risk gates into scheduler and execution flow so AI proposals and live trade execution are blocked when failsafes trigger.
 - [2026-03-19] Added initial automated tests for `CircuitBreaker` behavior (`tests/test_risk_manager.py`).
 - [2026-03-19] Updated project documentation for Alpha 1.1 in `README.md` with architecture, local runbook, deployment context, and test usage.
+- [2026-03-19] Added migration workflow (Alembic) before production schema evolution on Render PostgreSQL. *(moved from previous Next Steps per Alpha 1.2 milestone closeout)*
+- [2026-03-19] Expanded test coverage for scheduler loop, execution service, and AI proposal staging edge cases. *(moved from previous Next Steps per Alpha 1.2 milestone closeout)*
+- [2026-03-19] Persisted structured risk incidents to database for audit/compliance and monitoring dashboards. *(moved from previous Next Steps per Alpha 1.2 milestone closeout)*
+- [2026-03-19] Replaced placeholder Alpaca execution adapter internals with production order routing and response handling. *(moved from previous Next Steps per Alpha 1.2 milestone closeout)*
+- [2026-03-19] Added CI pipeline (lint + tests + compile checks) for automated quality gates on each push. *(moved from previous Next Steps per Alpha 1.2 milestone closeout)*
+- [2026-03-19] Performed Alpha 1.2 QA dependency/import audit across core runtime modules.
+- [2026-03-19] Hardened scheduler stability with a broad top-level exception guard in `run_cycle` to prevent worker crash on unexpected API/runtime failures.
 
 ## Next Steps
 
-- [ ] Add migration workflow (Alembic) before production schema evolution on Render PostgreSQL.
-- [ ] Expand test coverage for scheduler loop, execution service, and AI proposal staging edge cases.
-- [ ] Persist structured risk incidents to database for audit/compliance and monitoring dashboards.
-- [ ] Replace placeholder Alpaca execution adapter internals with production order routing and response handling.
-- [ ] Add CI pipeline (lint + tests + compile checks) for automated quality gates on each push.
+- [ ] Telegram Mobile Commander
+- [ ] Deep Ledger Reconciliation
+- [ ] AI Indicator Tuning
 
 ## Operating Rule (Persistent)
 

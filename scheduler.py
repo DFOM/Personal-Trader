@@ -55,33 +55,36 @@ def _stage_symbol(
 
 
 def run_cycle() -> None:
-    config_manager = ConfigManager()
-    circuit_breaker = CircuitBreaker(config_manager=config_manager)
+    try:
+        config_manager = ConfigManager()
+        circuit_breaker = CircuitBreaker(config_manager=config_manager)
 
-    if not bool(config_manager.get_setting("is_trading_active", False)):
-        logger.info("Scheduler cycle skipped: master trading switch is disabled.")
-        return
+        if not bool(config_manager.get_setting("is_trading_active", False)):
+            logger.info("Scheduler cycle skipped: master trading switch is disabled.")
+            return
 
-    drawdown_state = circuit_breaker.check_daily_drawdown()
-    if drawdown_state.get("triggered"):
-        logger.critical("Scheduler halted by circuit breaker: %s", drawdown_state)
-        return
+        drawdown_state = circuit_breaker.check_daily_drawdown()
+        if drawdown_state.get("triggered"):
+            logger.critical("Scheduler halted by circuit breaker: %s", drawdown_state)
+            return
 
-    symbol_universe = _get_symbol_universe(config_manager)
-    if not symbol_universe:
-        logger.warning("Scheduler cycle skipped: no symbols configured.")
-        return
+        symbol_universe = _get_symbol_universe(config_manager)
+        if not symbol_universe:
+            logger.warning("Scheduler cycle skipped: no symbols configured.")
+            return
 
-    analyst = TradeAnalyst()
+        analyst = TradeAnalyst()
 
-    for symbol in symbol_universe:
-        try:
-            staged = _stage_symbol(analyst=analyst, circuit_breaker=circuit_breaker, symbol=symbol)
-            logger.info("Proposal pipeline result for %s: %s", symbol, staged)
-        except TradeAnalystError as exc:
-            logger.exception("Trade analyst error for %s: %s", symbol, exc)
-        except Exception as exc:
-            logger.exception("Unexpected scheduler failure for %s: %s", symbol, exc)
+        for symbol in symbol_universe:
+            try:
+                staged = _stage_symbol(analyst=analyst, circuit_breaker=circuit_breaker, symbol=symbol)
+                logger.info("Proposal pipeline result for %s: %s", symbol, staged)
+            except TradeAnalystError as exc:
+                logger.exception("Trade analyst error for %s: %s", symbol, exc)
+            except Exception as exc:
+                logger.exception("Unexpected scheduler failure for %s: %s", symbol, exc)
+    except Exception as exc:
+        logger.exception("run_cycle failed with unhandled error: %s", exc)
 
 
 def main() -> None:
