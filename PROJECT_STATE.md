@@ -87,7 +87,7 @@ Personal Trader/
 └── PROJECT_STATE.md
 ```
 
-### Release: Alpha 1.4
+### Release: Alpha 1.5
 
 ## Completed Tasks
 
@@ -111,12 +111,16 @@ Personal Trader/
 - [2026-03-19] Upgraded asset analytics charting to candlestick + volume subplot with dark/neon Plotly theming and richer hover templates.
 - [2026-03-19] Implemented Telegram Mobile Commander (`notifications/telegram_bot.py`) with inline Approve/Reject actions and asynchronous long-polling.
 - [2026-03-19] Integrated Telegram commander into scheduler lifecycle via non-blocking background thread startup and proposal dispatch bridge.
+- [2026-03-19] Added deep ledger reconciliation persistence model (`LedgerReconciliationRun`) and included it in database initialization workflow.
+- [2026-03-19] Implemented `DeepLedgerReconciliationService` (`core/ledger_reconciliation.py`) to compare internal ledger cashflow vs broker snapshot with tolerance-based PASS/DRIFT status.
+- [2026-03-19] Added runnable reconciliation entrypoint (`reconcile_ledger.py`) for operational execution and JSON output.
+- [2026-03-19] Added reconciliation unit tests (`tests/test_ledger_reconciliation.py`) and validated full test suite pass.
 
 ## Next Steps
 
-- [ ] Deep Ledger Reconciliation
 - [ ] AI Indicator Tuning
 - [ ] Mobile command hardening (chat allowlist expansion, command auth, alert throttling)
+- [ ] Integrate reconciliation runs into scheduler cadence and surface DRIFT alerts via Telegram/Discord.
 
 ## Operating Rule (Persistent)
 
