@@ -92,15 +92,18 @@ Personal Trader/
 - [2026-03-19] Initialized `PROJECT_STATE.md` as persistent memory for architecture, stack, structure, and progress logs.
 - [2026-03-19] Defined target multi-layer system architecture (UI, AI agent, strategy, execution, data, deployment).
 - [2026-03-19] Established planned repository layout for scalable local-to-Render evolution.
+- [2026-03-19] Implemented hardcoded Circuit Breaker risk module with daily drawdown kill-switch and enforced position sizing limits.
+- [2026-03-19] Integrated risk gates into scheduler and execution flow so AI proposals and live trade execution are blocked when failsafes trigger.
+- [2026-03-19] Added initial automated tests for `CircuitBreaker` behavior (`tests/test_risk_manager.py`).
+- [2026-03-19] Updated project documentation for Alpha 1.1 in `README.md` with architecture, local runbook, deployment context, and test usage.
 
 ## Next Steps
 
-- [ ] Create initial Python project scaffold (app package, modules, tests, requirements).
-- [ ] Add environment/config system (`.env`, settings loader, dev/prod profiles).
-- [ ] Implement SQLAlchemy base setup and first schema models (orders, positions, signals, agent_decisions).
-- [ ] Build broker abstraction interfaces and stub adapters for CCXT and Alpaca.
-- [ ] Create minimal Streamlit app shell with health/status dashboard.
-- [ ] Define first bot execution loop for paper trading mode only.
+- [ ] Add migration workflow (Alembic) before production schema evolution on Render PostgreSQL.
+- [ ] Expand test coverage for scheduler loop, execution service, and AI proposal staging edge cases.
+- [ ] Persist structured risk incidents to database for audit/compliance and monitoring dashboards.
+- [ ] Replace placeholder Alpaca execution adapter internals with production order routing and response handling.
+- [ ] Add CI pipeline (lint + tests + compile checks) for automated quality gates on each push.
 
 ## Operating Rule (Persistent)
 
