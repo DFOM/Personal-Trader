@@ -3,12 +3,12 @@ import os
 from typing import Any, Dict, List, Optional
 
 from apscheduler.schedulers.blocking import BlockingScheduler
+from dotenv import load_dotenv
 
 from ai_agent import TradeAnalyst, TradeAnalystError
 from core.config_manager import ConfigManager
 from core.risk_manager import CircuitBreaker
 from database.init_db import init_db
-from database.models import SessionLocal, TradeProposal
 from notifications.telegram_bot import MobileCommander
 
 
@@ -18,6 +18,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 MOBILE_COMMANDER: Optional[MobileCommander] = None
+load_dotenv()
 
 
 def _get_symbol_universe(config_manager: ConfigManager) -> List[str]:
@@ -82,13 +83,6 @@ def run_cycle() -> None:
             try:
                 staged = _stage_symbol(analyst=analyst, circuit_breaker=circuit_breaker, symbol=symbol)
                 logger.info("Proposal pipeline result for %s: %s", symbol, staged)
-
-                proposal_id = staged.get("proposal_id") if isinstance(staged, dict) else None
-                if MOBILE_COMMANDER is not None and proposal_id:
-                    with SessionLocal() as session:
-                        proposal = session.get(TradeProposal, int(proposal_id))
-                        if proposal is not None:
-                            MOBILE_COMMANDER.send_proposal_sync(proposal)
             except TradeAnalystError as exc:
                 logger.exception("Trade analyst error for %s: %s", symbol, exc)
             except Exception as exc:

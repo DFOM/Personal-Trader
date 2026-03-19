@@ -54,6 +54,7 @@ class TradeProposal(Base):
     symbol = Column(String(50), nullable=False, index=True)
     action = Column(String(10), nullable=False)
     confidence = Column(Integer, nullable=False)
+    suggested_position_size = Column(Float, nullable=False, default=0.0)
     reasoning = Column(Text, nullable=False)
     status = Column(String(20), nullable=False, default="PENDING", index=True)
     timestamp = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)

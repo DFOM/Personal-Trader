@@ -1,15 +1,20 @@
 import json
 import os
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
 import requests
+from dotenv import load_dotenv
 from sqlalchemy.exc import SQLAlchemyError
 
 from database.models import SessionLocal, TradeProposal
+
+
+load_dotenv()
 
 
 class TradeAnalystError(Exception):
@@ -39,6 +44,31 @@ class TradeAnalyst:
 
     OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
     ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages"
+    REQUEST_RETRY_ATTEMPTS = 3
+    REQUEST_RETRY_BACKOFF_SECONDS = 1.2
+
+    DECISION_JSON_SCHEMA: Dict[str, Any] = {
+        "name": "trade_decision",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {
+                "action": {"type": "string", "enum": ["BUY", "SELL", "HOLD"]},
+                "symbol": {"type": "string"},
+                "confidence_score": {"type": "integer", "minimum": 1, "maximum": 100},
+                "suggested_position_size": {"type": "number", "minimum": 0, "maximum": 1},
+                "reasoning": {"type": "string"},
+            },
+            "required": [
+                "action",
+                "symbol",
+                "confidence_score",
+                "suggested_position_size",
+                "reasoning",
+            ],
+            "additionalProperties": False,
+        },
+    }
 
     def __init__(
         self,
@@ -114,6 +144,7 @@ class TradeAnalyst:
             symbol=decision["symbol"],
             action=decision["action"],
             confidence=decision["confidence_score"],
+            suggested_position_size=decision["suggested_position_size"],
             reasoning=decision["reasoning"],
             status="PENDING",
         )
@@ -192,12 +223,11 @@ class TradeAnalyst:
             }
             source = "finnhub-stock"
 
-        response = requests.get(
+        response = self._request_with_retry(
+            "GET",
             endpoint,
             params=params,
-            timeout=self.request_timeout,
         )
-        response.raise_for_status()
         payload = response.json()
 
         if payload.get("s") != "ok":
@@ -226,7 +256,8 @@ class TradeAnalyst:
 
     def _fetch_newsapi_headlines(self, symbol: str, api_key: str, limit: int) -> List[Dict[str, str]]:
         query = self._news_query_from_symbol(symbol)
-        response = requests.get(
+        response = self._request_with_retry(
+            "GET",
             "https://newsapi.org/v2/everything",
             params={
                 "q": query,
@@ -235,9 +266,7 @@ class TradeAnalyst:
                 "pageSize": max(1, min(limit, 20)),
                 "apiKey": api_key,
             },
-            timeout=self.request_timeout,
         )
-        response.raise_for_status()
 
         payload = response.json()
         articles = payload.get("articles", [])[:limit]
@@ -260,18 +289,19 @@ class TradeAnalyst:
         normalized_symbol = self._normalize_symbol_for_finnhub(symbol)
 
         if is_crypto:
-            response = requests.get(
+            response = self._request_with_retry(
+                "GET",
                 "https://finnhub.io/api/v1/news",
                 params={
                     "category": "crypto",
                     "token": api_key,
                 },
-                timeout=self.request_timeout,
             )
         else:
             to_date = datetime.now(timezone.utc).date()
             from_date = to_date - timedelta(days=3)
-            response = requests.get(
+            response = self._request_with_retry(
+                "GET",
                 "https://finnhub.io/api/v1/company-news",
                 params={
                     "symbol": normalized_symbol,
@@ -279,9 +309,7 @@ class TradeAnalyst:
                     "to": str(to_date),
                     "token": api_key,
                 },
-                timeout=self.request_timeout,
             )
-        response.raise_for_status()
 
         payload = response.json()
         if not isinstance(payload, list):
@@ -317,16 +345,12 @@ class TradeAnalyst:
 
     def _build_system_prompt(self) -> str:
         return (
-            "You are an institutional quantitative trading analyst. "
-            "You must evaluate short-term price action and recent news sentiment for a single asset, "
-            "assess directional bias and downside risk, and output ONE trading action: BUY, SELL, or HOLD. "
-            "Your output must be strict JSON with this exact schema: "
-            "{\"action\":\"BUY|SELL|HOLD\",\"symbol\":\"TICKER\",\"confidence_score\":1-100,"
-            "\"reasoning\":\"2-3 sentence thesis\",\"suggested_position_size\":0-1}. "
-            "Rules: confidence_score must be an integer 1-100; suggested_position_size is the fraction "
-            "of total portfolio risk and must be between 0 and 1; keep reasoning concise and evidence-based. "
-            "If signals conflict materially, prefer HOLD with lower confidence and smaller size. "
-            "Return only JSON and no markdown."
+            "You are a quantitative trading analyst. Evaluate 24h OHLCV trend and latest headline sentiment "
+            "for a single asset, then output one action: BUY, SELL, or HOLD. "
+            "Weight trend momentum, volatility context, and sentiment direction. "
+            "Use conservative risk sizing when uncertainty is high. "
+            "Reasoning must be exactly 2 concise sentences with clear financial rationale. "
+            "Output must strictly match the provided JSON schema."
         )
 
     def _build_user_prompt(
@@ -337,10 +361,28 @@ class TradeAnalyst:
     ) -> str:
         return (
             f"Asset: {symbol}\n"
-            f"24h Market Data: {json.dumps(market_data, ensure_ascii=False)}\n"
-            f"Recent Headlines (top 5): {json.dumps(headlines, ensure_ascii=False)}\n\n"
-            "Evaluate trend strength, momentum, and sentiment direction. "
-            "Then provide the required JSON decision object."
+            f"24h OHLCV + derived metrics: {json.dumps(market_data, ensure_ascii=False)}\n"
+            f"Latest headlines (top 5): {json.dumps(headlines, ensure_ascii=False)}\n\n"
+            "Return an action with confidence and position sizing based on risk-adjusted conviction."
+        )
+
+    def _request_with_retry(self, method: str, url: str, **kwargs: Any) -> requests.Response:
+        last_error: Optional[Exception] = None
+
+        for attempt in range(1, self.REQUEST_RETRY_ATTEMPTS + 1):
+            try:
+                response = requests.request(method, url, timeout=self.request_timeout, **kwargs)
+                response.raise_for_status()
+                return response
+            except (requests.Timeout, requests.ConnectionError, requests.HTTPError) as exc:
+                last_error = exc
+                if attempt == self.REQUEST_RETRY_ATTEMPTS:
+                    break
+                sleep_seconds = self.REQUEST_RETRY_BACKOFF_SECONDS * attempt
+                time.sleep(sleep_seconds)
+
+        raise TradeAnalystError(
+            f"Request failed after {self.REQUEST_RETRY_ATTEMPTS} attempts: {last_error}"
         )
 
     def _call_llm(self, system_prompt: str, user_prompt: str) -> str:
@@ -357,7 +399,8 @@ class TradeAnalyst:
         if not api_key:
             raise TradeAnalystError("OPENAI_API_KEY is not set.")
 
-        response = requests.post(
+        response = self._request_with_retry(
+            "POST",
             self.OPENAI_API_URL,
             headers={
                 "Authorization": f"Bearer {api_key}",
@@ -366,15 +409,16 @@ class TradeAnalyst:
             json={
                 "model": self.model_name,
                 "temperature": 0.1,
-                "response_format": {"type": "json_object"},
+                "response_format": {
+                    "type": "json_schema",
+                    "json_schema": self.DECISION_JSON_SCHEMA,
+                },
                 "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt},
                 ],
             },
-            timeout=self.request_timeout,
         )
-        response.raise_for_status()
 
         payload = response.json()
         choices = payload.get("choices") or []
@@ -391,7 +435,8 @@ class TradeAnalyst:
         if not api_key:
             raise TradeAnalystError("ANTHROPIC_API_KEY is not set.")
 
-        response = requests.post(
+        response = self._request_with_retry(
+            "POST",
             self.ANTHROPIC_API_URL,
             headers={
                 "x-api-key": api_key,
@@ -405,9 +450,7 @@ class TradeAnalyst:
                 "system": system_prompt,
                 "messages": [{"role": "user", "content": user_prompt}],
             },
-            timeout=self.request_timeout,
         )
-        response.raise_for_status()
 
         payload = response.json()
         content_blocks = payload.get("content") or []
@@ -461,6 +504,9 @@ class TradeAnalyst:
         reasoning = str(payload["reasoning"]).strip()
         if not reasoning:
             raise TradeAnalystError("reasoning cannot be empty.")
+        sentence_count = len([segment for segment in re.split(r"[.!?]+", reasoning) if segment.strip()])
+        if sentence_count < 2:
+            raise TradeAnalystError("reasoning must contain at least 2 concise sentences.")
 
         try:
             suggested_position_size = float(payload["suggested_position_size"])
