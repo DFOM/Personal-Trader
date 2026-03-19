@@ -1,6 +1,7 @@
 from database.models import (
     Base,
     DATABASE_URL,
+    LedgerReconciliationRun,
     SystemSettings,
     TradeProposal,
     TradeRecord,
@@ -9,7 +10,7 @@ from database.models import (
 
 
 def init_db() -> None:
-    _ = (TradeRecord, SystemSettings, TradeProposal)
+    _ = (TradeRecord, SystemSettings, TradeProposal, LedgerReconciliationRun)
     Base.metadata.create_all(bind=engine)
 
 

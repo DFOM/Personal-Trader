@@ -57,3 +57,18 @@ class TradeProposal(Base):
     reasoning = Column(Text, nullable=False)
     status = Column(String(20), nullable=False, default="PENDING", index=True)
     timestamp = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+
+
+class LedgerReconciliationRun(Base):
+    __tablename__ = "ledger_reconciliation_runs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    run_timestamp = Column(DateTime, nullable=False, default=datetime.utcnow, index=True)
+    status = Column(String(20), nullable=False, index=True)
+    source = Column(String(30), nullable=False, default="LOCAL")
+    expected_net_cashflow = Column(Float, nullable=False, default=0.0)
+    broker_net_cashflow = Column(Float, nullable=False, default=0.0)
+    absolute_delta = Column(Float, nullable=False, default=0.0)
+    tolerance_threshold = Column(Float, nullable=False, default=1.0)
+    summary = Column(String(300), nullable=False)
+    details_json = Column(Text, nullable=False)
