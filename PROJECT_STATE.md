@@ -87,7 +87,7 @@ Personal Trader/
 └── PROJECT_STATE.md
 ```
 
-### Release: Alpha 1.2
+### Release: Alpha 1.4
 
 ## Completed Tasks
 
@@ -105,12 +105,18 @@ Personal Trader/
 - [2026-03-19] Added CI pipeline (lint + tests + compile checks) for automated quality gates on each push. *(moved from previous Next Steps per Alpha 1.2 milestone closeout)*
 - [2026-03-19] Performed Alpha 1.2 QA dependency/import audit across core runtime modules.
 - [2026-03-19] Hardened scheduler stability with a broad top-level exception guard in `run_cycle` to prevent worker crash on unexpected API/runtime failures.
+- [2026-03-19] Added Render import bootstrap in `ui/app.py` to resolve `ModuleNotFoundError: core` in cloud deployment contexts.
+- [2026-03-19] Overhauled Streamlit UI into immersive matte-black + purple glassmorphism aesthetic with neon-green positive metric highlights.
+- [2026-03-19] Added tooltip micro-interactions for finance terms (`Max Drawdown`, `Sharpe Ratio`, `Slippage`) and icon-driven navigation labels.
+- [2026-03-19] Upgraded asset analytics charting to candlestick + volume subplot with dark/neon Plotly theming and richer hover templates.
+- [2026-03-19] Implemented Telegram Mobile Commander (`notifications/telegram_bot.py`) with inline Approve/Reject actions and asynchronous long-polling.
+- [2026-03-19] Integrated Telegram commander into scheduler lifecycle via non-blocking background thread startup and proposal dispatch bridge.
 
 ## Next Steps
 
-- [ ] Telegram Mobile Commander
 - [ ] Deep Ledger Reconciliation
 - [ ] AI Indicator Tuning
+- [ ] Mobile command hardening (chat allowlist expansion, command auth, alert throttling)
 
 ## Operating Rule (Persistent)
 
